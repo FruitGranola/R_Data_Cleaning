@@ -1,6 +1,7 @@
 ---
 title: "データの取り込み＆クリーニング"
 date: "`r Sys.Date()`"
+author: Sort
 output:
   rmdformats::readthedown:
     highlight: kate
