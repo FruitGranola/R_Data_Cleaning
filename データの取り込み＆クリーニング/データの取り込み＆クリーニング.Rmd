@@ -19,11 +19,7 @@ library(rmdformats)
 
 knitr::opts_chunk$set(warning = F,
                       message = F,
-                      comment = "",
-                      fig.align = "center",
-                      fig.width = 8,
-                      fig.height = 6,
-                      dpi = 100)
+                      comment = "")
 ```
 
 # 使用するパッケージ
