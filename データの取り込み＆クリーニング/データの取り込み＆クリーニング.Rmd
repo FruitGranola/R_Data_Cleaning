@@ -1,0 +1,130 @@
+---
+title: "データの取り込み＆クリーニング"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    self_contained: true
+---
+
+```{css, echo=FALSE}
+#content {
+    max-width: 100%;
+}
+```
+
+```{r, include=FALSE}
+library(rmdformats)
+
+knitr::opts_chunk$set(warning = F,
+                      message = F,
+                      comment = "",
+                      fig.align = "center",
+                      fig.width = 8,
+                      fig.height = 6,
+                      dpi = 100)
+```
+
+# 使用するパッケージ
+
+```{r}
+library(tidyverse) # RStudio を使うなら一番最初に読み込むパッケージ
+library(magrittr) # パイプ処理用のパッケージ
+library(readxl) # 今回使用するファイル形式が Excel のため、このパッケージを使用する
+```
+
+# データの取り込み
+
+```{r}
+FH <- read_excel("Data/2020_Country_and_Territory_Ratings_and_Statuses_FIW1973-2020.xlsx", sheet = 2, skip = 2, na = "-")
+```
+
+# データクリーニング
+
+```{r}
+str(FH)
+```
+
+```{r}
+FH$PR...2 %>% unique()
+```
+
+```{r}
+FH$CL...3 %>% unique()
+```
+
+```{r}
+FH %<>% 
+  mutate(PR...2 = if_else(PR...2 == "2(5)", "NA", PR...2),
+         CL...3 = if_else(CL...3 == "3(6)", "NA", CL...3)) %>% 
+  mutate(across(c(PR...2, CL...3), as.numeric)) %>%  # 2 つの列に同時に as.numeric を施す
+  rename(country = 1)                                # 1 という変数名を country に変更
+```
+
+# wide 形式を long 形式に変形する
+
+```{r}
+FH_country <- FH %>% select(country) # いじりたくない変数
+
+FH_value <- FH %>% select(-country) # いじりたい変数
+```
+
+```{r}
+colnames(FH_value) <-                       # 変数名に代入する
+  str_replace_all(colnames(FH_value),       # 変数名の
+                  c("\\.\\.\\." = "_")) %>% # 「...」を「_」に置き換える  
+  str_subset("PR|CL|Status") %>%            # PR, CL, Statusと名の付く変数を対象とする
+  str_replace_all(c("[0-9]" = "",           # 数字を消す
+                    "PR" = "pr",            # 小文字に変更  
+                    "CL" = "cl",            # 小文字に変更 
+                    "Status" = "st")) %>%   # 小文字に変更
+  str_c(.,  rep(setdiff(1972:2019, 1981),   # 変数名の後ろに1972~2019までの数字を付ける。あと、1981を飛ばす
+                each = 3))                  # 1年につき、3つの変数があるので、3回同じ数字を付けて、次の年に行くようにする
+
+FH_value %>% names()
+```
+
+```{r}
+FH_wide <- bind_cols(FH_country, FH_value)
+```
+
+# long に変形する
+
+```{r}
+PR_CL_long <- FH_wide %>% 
+  select(country,                         # country と
+         starts_with(c("pr", "cl"))) %>%  # pr と cl で初まる変数だけを選ぶ  
+  pivot_longer(pr_1972:cl_2019,           # 変換したい変数の範囲を指定
+               names_to = "type",         # 「変数名(pr_1972 など)を type に入れる
+               values_to = "value") %>%   # 「変数(pr_1972 など) の値」を value に入れる
+  separate(type,
+           into = c("type", "year"),      # type の中身を type と year 二つの変数に分ける  
+           sep = "_") %>%                 # type の中身は pr_1973 のように "_" で分けられている
+           drop_na()                      # 欠損値を省く
+
+PR_CL_long %>% head()
+```
+
+```{r}
+ST_long <- FH_wide %>% 
+  select(country,                        # country と
+         starts_with("st")) %>%          # st で初まる変数だけを選ぶ
+  pivot_longer(st_1972:st_2019,          # 変換したい変数の範囲を指定
+               names_to = "name",        # 「変数名(st_1972など)をnameに入れる
+               values_to = "status") %>% # 「変数(st_1972など) の値」をstatusに入れる
+  separate(name, 
+           into = c("name", "year"),     # nameの中身(st_1972など）をnameとyear 二つの変数に分ける
+           sep = "_") %>%                # nameの中身はst_1972のように "_" で分けられている
+  select(-name)%>%                       # nameは不要なので削除  
+  drop_na()                              # 欠損値を省く
+
+ST_long %>% head()
+```
+
+```{r}
+FH_long <- left_join(PR_CL_long, ST_long, by = c("country", "year"))　
+# by = c("country", "year") は何を目印にがっちゃんこするかを示す
+
+rmarkdown::paged_table(FH_long) # 完成品を見てみよう
+```
+
