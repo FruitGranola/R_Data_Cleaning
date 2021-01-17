@@ -7,7 +7,7 @@
 
         <meta name="author" content="Sort" />
     
-        <meta name="date" content="2021-01-16" />
+        <meta name="date" content="2021-01-17" />
     
     <title>データの取り込み＆クリーニング</title>
 
@@ -2893,14 +2893,18 @@ window.onload = function() {
       <ul>
       <li><a href="#使用するパッケージ">使用するパッケージ</a></li>
       <li><a href="#データの取り込み">データの取り込み</a></li>
-      <li><a href="#データクリーニング">データクリーニング</a></li>
-      <li><a href="#wide-形式を-long-形式に変形する">wide 形式を long 形式に変形する</a></li>
+      <li><a href="#データクリーニング">データクリーニング</a><ul>
+      <li><a href="#各変数のclassを確認する">各変数のclassを確認する</a></li>
+      </ul></li>
+      <li><a href="#wide-形式を-long-形式に変形する">wide 形式を long 形式に変形する</a><ul>
+      <li><a href="#wide-の状態で行う処理">wide の状態で行う処理</a></li>
+      </ul></li>
       <li><a href="#long-に変形する">long に変形する</a></li>
       </ul>
     </div>
     <div id="postamble" data-toggle="wy-nav-shift" class="status">
                   <p class="author"><span class="glyphicon glyphicon-user"></span> Sort</p>
-                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2021-01-16</p>
+                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2021-01-17</p>
           </div>
    </div>
    
@@ -2922,10 +2926,24 @@ window.onload = function() {
 </div>
 <div id="データの取り込み" class="section level1">
 <h1>データの取り込み</h1>
+<p>今回は Excel ファイルをダウンロードしてきて、そのまま使用する。<br />
+ちなみに、余裕があるなら用事のあるシートだけを CSV ファイルに変換したほうが良いかも…</p>
+<p>sheet = 2 : 使用するシートは 2 つ目と指定する。<br />
+skip = 2 : 上から 2 列目までを無視する。<br />
+na = “-” : “-” を na に置き換える。</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a>FH &lt;-<span class="st"> </span><span class="kw">read_excel</span>(<span class="st">&quot;Data/2020_Country_and_Territory_Ratings_and_Statuses_FIW1973-2020.xlsx&quot;</span>, <span class="dt">sheet =</span> <span class="dv">2</span>, <span class="dt">skip =</span> <span class="dv">2</span>, <span class="dt">na =</span> <span class="st">&quot;-&quot;</span>)</span></code></pre></div>
 </div>
 <div id="データクリーニング" class="section level1">
 <h1>データクリーニング</h1>
+<p>ここからデータの中身を確認して、データを整理していく。</p>
+<div id="各変数のclassを確認する" class="section level2">
+<h2>各変数のclassを確認する</h2>
+<p>…1 : character<br />
+PR…n : numeric<br />
+CL…n : numeric<br />
+Status…n : character<br />
+であればOK</p>
+<p>str() で各変数の class を確認してみる。</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">str</span>(FH)</span></code></pre></div>
 <pre><code>tibble [205 x 142] (S3: tbl_df/tbl/data.frame)
  $ ...1        : chr [1:205] &quot;Afghanistan&quot; &quot;Albania&quot; &quot;Algeria&quot; &quot;Andorra&quot; ...
@@ -3028,21 +3046,34 @@ window.onload = function() {
  $ PR...98     : num [1:205] 5 3 6 1 6 2 2 5 1 1 ...
  $ CL...99     : num [1:205] 5 3 5 1 5 2 2 4 1 1 ...
   [list output truncated]</code></pre>
+<p>PR…2 と CL…3 は numeric であるはずが character になっている。<br />
+unique() で変数の値を確認してみる。</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a>FH<span class="op">$</span>PR...<span class="dv">2</span> <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">unique</span>()</span></code></pre></div>
 <pre><code>[1] &quot;4&quot;    &quot;7&quot;    &quot;6&quot;    NA     &quot;1&quot;    &quot;2&quot;    &quot;5&quot;    &quot;3&quot;    &quot;2(5)&quot;</code></pre>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a>FH<span class="op">$</span>CL...<span class="dv">3</span> <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">unique</span>()</span></code></pre></div>
 <pre><code>[1] &quot;5&quot;    &quot;7&quot;    &quot;6&quot;    &quot;3&quot;    NA     &quot;1&quot;    &quot;4&quot;    &quot;2&quot;    &quot;3(6)&quot;</code></pre>
+<p>どうやら “2(5)” や “3(6)” のような数値でないものが混ざっているみたいだ。<br />
+これを if_elese() で NA に置き換える。その後、as.numeric() で character から numeric に変数の class を変換する。<br />
+ついでに、…1 は国名なので、変数名を country に変えておく</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a>FH <span class="op">%&lt;&gt;%</span><span class="st"> </span></span>
 <span id="cb9-2"><a href="#cb9-2"></a><span class="st">  </span><span class="kw">mutate</span>(<span class="dt">PR...2 =</span> <span class="kw">if_else</span>(PR...<span class="dv">2</span> <span class="op">==</span><span class="st"> &quot;2(5)&quot;</span>, <span class="st">&quot;NA&quot;</span>, PR...<span class="dv">2</span>),</span>
 <span id="cb9-3"><a href="#cb9-3"></a>         <span class="dt">CL...3 =</span> <span class="kw">if_else</span>(CL...<span class="dv">3</span> <span class="op">==</span><span class="st"> &quot;3(6)&quot;</span>, <span class="st">&quot;NA&quot;</span>, CL...<span class="dv">3</span>)) <span class="op">%&gt;%</span><span class="st"> </span></span>
 <span id="cb9-4"><a href="#cb9-4"></a><span class="st">  </span><span class="kw">mutate</span>(<span class="kw">across</span>(<span class="kw">c</span>(PR...<span class="dv">2</span>, CL...<span class="dv">3</span>), as.numeric)) <span class="op">%&gt;%</span><span class="st">  </span><span class="co"># 2 つの列に同時に as.numeric を施す</span></span>
 <span id="cb9-5"><a href="#cb9-5"></a><span class="st">  </span><span class="kw">rename</span>(<span class="dt">country =</span> <span class="dv">1</span>)                                <span class="co"># 1 という変数名を country に変更</span></span></code></pre></div>
 </div>
+</div>
 <div id="wide-形式を-long-形式に変形する" class="section level1">
 <h1>wide 形式を long 形式に変形する</h1>
+<p>このデータは wide と呼ばれる形式のため、tidy な R 生活を送っている人にとって非常に使いにくい。<br />
+これを long と呼ばれる形式に変形する。</p>
+<div id="wide-の状態で行う処理" class="section level2">
+<h2>wide の状態で行う処理</h2>
+<p>まずは“いじりたくない変数”と“いじりたい変数”で分割する。</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a>FH_country &lt;-<span class="st"> </span>FH <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">select</span>(country) <span class="co"># いじりたくない変数</span></span>
 <span id="cb10-2"><a href="#cb10-2"></a></span>
 <span id="cb10-3"><a href="#cb10-3"></a>FH_value &lt;-<span class="st"> </span>FH <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">select</span>(<span class="op">-</span>country) <span class="co"># いじりたい変数</span></span></code></pre></div>
+<p>いじりたい変数である FH_value の変数名に年数を付けていく。<br />
+pr_xxxx という感じにしたい。そのため、まずは stringr パッケージ（tidyverse に内包されている）の関数を使う。</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a><span class="kw">colnames</span>(FH_value) &lt;-<span class="st">                       </span><span class="co"># 変数名に代入する</span></span>
 <span id="cb11-2"><a href="#cb11-2"></a><span class="st">  </span><span class="kw">str_replace_all</span>(<span class="kw">colnames</span>(FH_value),       <span class="co"># 変数名の</span></span>
 <span id="cb11-3"><a href="#cb11-3"></a>                  <span class="kw">c</span>(<span class="st">&quot;</span><span class="ch">\\</span><span class="st">.</span><span class="ch">\\</span><span class="st">.</span><span class="ch">\\</span><span class="st">.&quot;</span> =<span class="st"> &quot;_&quot;</span>)) <span class="op">%&gt;%</span><span class="st"> </span><span class="co"># 「...」を「_」に置き換える  </span></span>
@@ -3076,10 +3107,14 @@ window.onload = function() {
 [127] &quot;pr_2015&quot; &quot;cl_2015&quot; &quot;st_2015&quot; &quot;pr_2016&quot; &quot;cl_2016&quot; &quot;st_2016&quot; &quot;pr_2017&quot;
 [134] &quot;cl_2017&quot; &quot;st_2017&quot; &quot;pr_2018&quot; &quot;cl_2018&quot; &quot;st_2018&quot; &quot;pr_2019&quot; &quot;cl_2019&quot;
 [141] &quot;st_2019&quot;</code></pre>
+<p>変数名を変更し終わったら、bind_cols()で国名とがっちゃんこする。</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a>FH_wide &lt;-<span class="st"> </span><span class="kw">bind_cols</span>(FH_country, FH_value)</span></code></pre></div>
+</div>
 </div>
 <div id="long-に変形する" class="section level1">
 <h1>long に変形する</h1>
+<p>ここでも、2 回に分けて wide から long に変形する。</p>
+<p>まずは pr と cl を type という変数にまとめ、wide から long に変形させる。</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>PR_CL_long &lt;-<span class="st"> </span>FH_wide <span class="op">%&gt;%</span><span class="st"> </span></span>
 <span id="cb14-2"><a href="#cb14-2"></a><span class="st">  </span><span class="kw">select</span>(country,                         <span class="co"># country と</span></span>
 <span id="cb14-3"><a href="#cb14-3"></a>         <span class="kw">starts_with</span>(<span class="kw">c</span>(<span class="st">&quot;pr&quot;</span>, <span class="st">&quot;cl&quot;</span>))) <span class="op">%&gt;%</span><span class="st">  </span><span class="co"># pr と cl で初まる変数だけを選ぶ  </span></span>
@@ -3101,6 +3136,7 @@ window.onload = function() {
 4 Afghanistan pr    1975      7
 5 Afghanistan pr    1976      7
 6 Afghanistan pr    1977      6</code></pre>
+<p>つぎに st を status という変数にし、wide から long に変形させる。</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a>ST_long &lt;-<span class="st"> </span>FH_wide <span class="op">%&gt;%</span><span class="st"> </span></span>
 <span id="cb16-2"><a href="#cb16-2"></a><span class="st">  </span><span class="kw">select</span>(country,                        <span class="co"># country と</span></span>
 <span id="cb16-3"><a href="#cb16-3"></a>         <span class="kw">starts_with</span>(<span class="st">&quot;st&quot;</span>)) <span class="op">%&gt;%</span><span class="st">          </span><span class="co"># st で初まる変数だけを選ぶ</span></span>
@@ -3123,6 +3159,8 @@ window.onload = function() {
 4 Afghanistan 1975  NF    
 5 Afghanistan 1976  NF    
 6 Afghanistan 1977  NF    </code></pre>
+<p>wide に変形させた 2 個のデータを left_join() でがっちゃんこする。<br />
+そして、完成した long 形式のデータを見てみよう。</p>
 <div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a>FH_long &lt;-<span class="st"> </span><span class="kw">left_join</span>(PR_CL_long, ST_long, <span class="dt">by =</span> <span class="kw">c</span>(<span class="st">&quot;country&quot;</span>, <span class="st">&quot;year&quot;</span>))　</span>
 <span id="cb18-2"><a href="#cb18-2"></a><span class="co"># by = c(&quot;country&quot;, &quot;year&quot;) は何を目印にがっちゃんこするかを示す</span></span>
 <span id="cb18-3"><a href="#cb18-3"></a></span>

@@ -32,15 +32,37 @@ library(readxl) # 今回使用するファイル形式が Excel のため、こ�
 
 # データの取り込み
 
+今回は Excel ファイルをダウンロードしてきて、そのまま使用する。  
+ちなみに、余裕があるなら用事のあるシートだけを CSV ファイルに変換したほうが良いかも...  
+
+sheet = 2 : 使用するシートは 2 つ目と指定する。  
+skip = 2 : 上から 2 列目までを無視する。  
+na = "-" : "-" を na に置き換える。
+
 ```{r}
 FH <- read_excel("Data/2020_Country_and_Territory_Ratings_and_Statuses_FIW1973-2020.xlsx", sheet = 2, skip = 2, na = "-")
 ```
 
 # データクリーニング
 
+ここからデータの中身を確認して、データを整理していく。
+
+## 各変数のclassを確認する
+
+...1 : character  
+PR...n : numeric  
+CL...n : numeric  
+Status...n : character  
+であればOK
+
+str() で各変数の class を確認してみる。
+
 ```{r}
 str(FH)
 ```
+
+PR...2 と CL...3 は numeric であるはずが character になっている。  
+unique() で変数の値を確認してみる。
 
 ```{r}
 FH$PR...2 %>% unique()
@@ -49,6 +71,10 @@ FH$PR...2 %>% unique()
 ```{r}
 FH$CL...3 %>% unique()
 ```
+
+どうやら "2(5)" や "3(6)" のような数値でないものが混ざっているみたいだ。  
+これを if_elese() で NA に置き換える。その後、as.numeric() で character から numeric に変数の class を変換する。  
+ついでに、...1 は国名なので、変数名を country に変えておく
 
 ```{r}
 FH %<>% 
@@ -60,11 +86,21 @@ FH %<>%
 
 # wide 形式を long 形式に変形する
 
+このデータは wide と呼ばれる形式のため、tidy な R 生活を送っている人にとって非常に使いにくい。  
+これを long と呼ばれる形式に変形する。
+
+## wide の状態で行う処理
+
+まずは"いじりたくない変数"と"いじりたい変数"で分割する。
+
 ```{r}
 FH_country <- FH %>% select(country) # いじりたくない変数
 
 FH_value <- FH %>% select(-country) # いじりたい変数
 ```
+
+いじりたい変数である FH_value の変数名に年数を付けていく。  
+pr_xxxx という感じにしたい。そのため、まずは stringr パッケージ（tidyverse に内包されている）の関数を使う。  
 
 ```{r}
 colnames(FH_value) <-                       # 変数名に代入する
@@ -81,11 +117,17 @@ colnames(FH_value) <-                       # 変数名に代入する
 FH_value %>% names()
 ```
 
+変数名を変更し終わったら、bind_cols()で国名とがっちゃんこする。
+
 ```{r}
 FH_wide <- bind_cols(FH_country, FH_value)
 ```
 
 # long に変形する
+
+ここでも、2 回に分けて wide から long に変形する。
+
+まずは pr と cl を type という変数にまとめ、wide から long に変形させる。
 
 ```{r}
 PR_CL_long <- FH_wide %>% 
@@ -102,6 +144,8 @@ PR_CL_long <- FH_wide %>%
 PR_CL_long %>% head()
 ```
 
+つぎに st を status という変数にし、wide から long に変形させる。
+
 ```{r}
 ST_long <- FH_wide %>% 
   select(country,                        # country と
@@ -117,6 +161,9 @@ ST_long <- FH_wide %>%
 
 ST_long %>% head()
 ```
+
+wide に変形させた 2 個のデータを left_join() でがっちゃんこする。  
+そして、完成した long 形式のデータを見てみよう。
 
 ```{r}
 FH_long <- left_join(PR_CL_long, ST_long, by = c("country", "year"))　
