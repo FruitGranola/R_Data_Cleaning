@@ -2,25 +2,16 @@
 title: "データの取り込み＆クリーニング"
 date: "`r Sys.Date()`"
 author: Sort
-output:
-  rmdformats::readthedown:
-    highlight: kate
-    self_contained: true
+output: html_document
 ---
 
-```{css, echo=FALSE}
-#content {
-    max-width: 100%;
-}
-```
-
 ```{r, include=FALSE}
-library(rmdformats)
-
 knitr::opts_chunk$set(warning = F,
                       message = F,
                       comment = "")
 ```
+
+この記事のコードをまとめたものは[Github](https://github.com/FruitGranola?tab=repositories)にあります。
 
 # 使用するパッケージ
 
@@ -35,9 +26,9 @@ library(readxl) # 今回使用するファイル形式が Excel のため、こ�
 今回は Excel ファイルをダウンロードしてきて、そのまま使用する。  
 ちなみに、余裕があるなら用事のあるシートだけを CSV ファイルに変換したほうが良いかも...  
 
-sheet = 2 : 使用するシートは 2 つ目と指定する。  
-skip = 2 : 上から 2 列目までを無視する。  
-na = "-" : "-" を na に置き換える。
+`sheet = 2` : 使用するシートは 2 つ目と指定する。  
+`skip = 2` : 上から 2 列目までを無視する。  
+`na = "-"` : "-" を na に置き換える。
 
 ```{r}
 FH <- read_excel("Data/2020_Country_and_Territory_Ratings_and_Statuses_FIW1973-2020.xlsx", sheet = 2, skip = 2, na = "-")
@@ -55,14 +46,14 @@ CL...n : numeric
 Status...n : character  
 であればOK
 
-str() で各変数の class を確認してみる。
+`str()` で各変数の class を確認してみる。
 
 ```{r}
 str(FH)
 ```
 
 PR...2 と CL...3 は numeric であるはずが character になっている。  
-unique() で変数の値を確認してみる。
+`unique()` で変数の値を確認してみる。
 
 ```{r}
 FH$PR...2 %>% unique()
@@ -73,7 +64,7 @@ FH$CL...3 %>% unique()
 ```
 
 どうやら "2(5)" や "3(6)" のような数値でないものが混ざっているみたいだ。  
-これを if_elese() で NA に置き換える。その後、as.numeric() で character から numeric に変数の class を変換する。  
+これを `if_elese()` で NA に置き換える。その後、`as.numeric()` で character から numeric に変数の class を変換する。  
 ついでに、...1 は国名なので、変数名を country に変えておく
 
 ```{r}
@@ -117,7 +108,7 @@ colnames(FH_value) <-                       # 変数名に代入する
 FH_value %>% names()
 ```
 
-変数名を変更し終わったら、bind_cols()で国名とがっちゃんこする。
+変数名を変更し終わったら、`bind_cols()`で国名とがっちゃんこする。
 
 ```{r}
 FH_wide <- bind_cols(FH_country, FH_value)
@@ -170,5 +161,9 @@ FH_long <- left_join(PR_CL_long, ST_long, by = c("country", "year"))　
 # by = c("country", "year") は何を目印にがっちゃんこするかを示す
 
 rmarkdown::paged_table(FH_long) # 完成品を見てみよう
+```
+
+```{r}
+write.csv(x = FH_long, file = "Country and Territory Ratings and Statuses.csv", fileEncoding = "UTF-8")
 ```
 
